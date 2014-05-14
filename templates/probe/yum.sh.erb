@@ -1,0 +1,8 @@
+#!/bin/bash
+
+title=$1
+package=$2
+
+version=$(yum -q --disablerepo=* --enablerepo=base,updates info $package.<%= scope['::architecture'] %> 2>&1 | grep Version)
+
+test -z "$version" && echo "${title}_version=0.0.0" || echo $version | sed "s/.*\s:\s\(.*\)/${title}_version=\1/" >> /etc/facter/facts.d/versions.txt

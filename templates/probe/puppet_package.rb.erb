@@ -1,0 +1,194 @@
+#!/usr/bin/env ruby
+
+requirements = <%= @requirements %>
+
+def versioncmp(version_a, version_b)
+  vre = /[-.]|\d+|[^-.\d]+/
+  ax = version_a.scan(vre)
+  bx = version_b.scan(vre)
+
+  while (ax.length>0 && bx.length>0)
+    a = ax.shift
+    b = bx.shift
+
+    if( a == b ) then next
+    elsif (a == '-' && b == '-') then next
+    elsif (a == '-') then return -1
+    elsif (b == '-') then return 1
+    elsif (a == '.' && b == '.') then next
+    elsif (a == '.' ) then return -1
+    elsif (b == '.' ) then return 1
+    elsif (a =~ /^\d+$/ && b =~ /^\d+$/) then
+      if( a =~ /^0/ or b =~ /^0/ ) then
+        return a.to_s.upcase <=> b.to_s.upcase
+      end
+      return a.to_i <=> b.to_i
+    else
+      return a.upcase <=> b.upcase
+    end
+  end
+  version_a <=> version_b;
+end
+
+def check_pkg_availabality(package, require_version)
+<%- case scope['::osfamily']
+      when 'Debian' -%>
+  version = `apt-cache --no-all-versions show #{package}:<%= scope['::architecture'] %> 2>&1 | grep Version | cut -d' ' -f 2`
+<%-   when 'RedHat' -%>
+  version = `yum -q --disablerepo=* --enablerepo=base,updates info #{package}.<%= scope['::hardwaremodel'] %> 2>&1 | grep Version`
+<%- end -%>
+  if version.empty?
+    version = '0.0.0'
+<%- if scope['::osfamily'] == 'RedHat' -%>
+  else
+    version = version.gsub(/Version\s+:\s(.*)/, '\1') 
+<%- end -%>
+  end
+
+  return versioncmp(version, require_version)
+end
+
+def repo_pkg_install(package)
+  if ! `puppet resource package #{package} | grep 'absent\\|purged'`.empty?
+<%- case scope['::osfamily']
+      when 'Debian' -%>
+    `apt-get -q -y install #{package}`
+<%-   when 'RedHat' -%>
+    `yum -q -y install #{package}.<%= scope['::hardwaremodel'] %>`
+<%- end -%>
+  end
+end
+
+def compile_pkg_install(compile_opt)
+  if ! compile_opt.is_a?(Hash)
+    raise "#{compile_opt.inspect} is not a Hash.  It looks to be a #{compile_opt.class}"
+  end
+
+  if ! compile_opt.has_key?('src_url')
+    raise "compile_opt must have key 'src_url'"
+  else
+    src_url = compile_opt['src_url']
+  end
+  
+  if compile_opt.has_key?('config_opt')
+    config_opt = compile_opt['config_opt']
+  else
+    config_opt = '--enable-static=no CFLAGS=\'-O2 -s\''
+  end
+
+  if compile_opt.has_key?('lib_dir')
+    lib_dir    = compile_opt['lib_dir']
+    config_cmd = "PKG_CONFIG_PATH=#{lib_dir}/pkgconfig:$PKG_CONFIG_PATH LD_LIBRARY_PATH=#{lib_dir}:$LD_LIBRARY_PATH ./configure --libdir='#{lib_dir}' #{config_opt}"
+
+    `mkdir -p #{lib_dir}`
+  else
+    config_cmd = "./configure #{config_opt}"
+  end
+
+  if compile_opt.has_key?('make_cmd')
+    make_cmd = compile_opt['make_cmd']
+  else
+    make_cmd = 'make -s && make -s install && ldconfig'
+  end
+
+  src_filename = src_url.gsub(/^.*\/(.*)$/, '\1')
+
+  if compile_opt.has_key?('src_dirname')
+    src_dirname = compile_opt['src_dirname']
+  else
+    src_dirname = src_filename.gsub(/^(.*)(?:\.tgz|\.tar\.gz|\.tar\.bz2|\.tar\.xz|\.tar|\.zip)$/,'\1')
+  end
+
+  src_compresstype = src_filename.gsub(/^(?:.*)(\.tgz|\.gz|\.bz2|\.xz|\.zip)$/,'\1')
+
+  case src_compresstype
+    when '.tgz'
+    when '.gz'
+      uncompress_cmd = 'gunzip -c'
+    when '.bz2'
+      uncompress_cmd = 'bunzip2 -c'
+    when '.xz'
+      uncompress_cmd = 'unxz -c'
+    when '.zip'
+      uncompress_cmd = 'unzip -c'
+    else
+      raise "#{src_compresstype} is not an supported extension."
+  end
+
+  if src_compresstype == '.zip'
+    unarchive_cmd = ''
+  else
+    unarchive_cmd = '| tar -xf -'
+  end
+
+  work_dir = '/usr/local/src'
+
+  `mkdir -p #{work_dir}`
+
+  Dir.chdir(work_dir) do
+    # Retrieve source from url
+<%- case scope['::osfamily']
+      when 'Debian' -%>
+    retrieve_cmd = 'wget'
+<%-   when 'RedHat' -%>
+    retrieve_cmd = 'curl -L -s -O'
+<%-   else
+        case scope['::operatingsystem']
+          when 'freebsd' -%>
+    retrieve_cmd = 'fetch'
+<%-       else -%>
+  raise "No retrieve cmd for #{scope['::operatingsystem']}"
+<%-     end
+    end -%>
+
+    `#{retrieve_cmd} #{src_url}`
+
+    # Extraction
+    `#{uncompress_cmd} #{src_filename} #{unarchive_cmd}`
+    system('rm', '-f', src_filename)
+
+    Dir.chdir(src_dirname) do
+      # Configure
+      system(config_cmd)
+
+      # Make
+      system(make_cmd)
+    end
+  system('rm', '-rf', src_dirname)
+  end
+end
+
+def pkg_install(requirement)
+  if check_pkg_availabality(requirement['packages']['<%= scope['::osfamily'] %>'], requirement['version']) < 0 
+    if requirement['requirements'].is_a?(Array)
+      hash_handler(requirement['requirements'])
+    end
+    puts "Manual install of #{requirement['packages']['<%= scope['::osfamily'] %>']}"
+    compile_pkg_install(requirement['compile_opt'])
+  else
+    puts "Automatic install of #{requirement['packages']['<%= scope['::osfamily'] %>']}"
+    repo_pkg_install(requirement['packages']['<%= scope['::osfamily'] %>'])
+  end
+end
+
+def hash_handler(requirements)
+  requirements.each do |value|
+    pkg_install(value) 
+  end
+end
+
+if ! requirements.is_a?(Array)
+  raise "#{requirements.inspect} is not an Array.  It looks to be a #{requirements.class}"
+else
+
+<%- case scope['::osfamily']
+      when 'Debian' -%>
+  if ! system('apt-get', '-q', '-y', 'install', 'build-essential')
+<%-   when 'RedHat' -%>
+  if ! system('yum -q -y groupinstall "Development Tools" > /dev/null') or !  system('yum -q -y install texinfo')
+<%- end -%>
+    raise 'Error: bad install of the compile tools'
+  end
+
+  hash_handler(requirements)
+end
