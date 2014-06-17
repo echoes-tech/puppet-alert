@@ -23,4 +23,6 @@ class echoes_alert::postgresql (
     user     => $user,
     password => postgresql_password($user, $password),
   }
+
+  create_resources(sql_exec, sql_archive('/etc/puppet/environments/production/modules/echoes_alert/files/postgresql/probe_sql_script', $branch))
 }

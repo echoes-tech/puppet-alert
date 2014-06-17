@@ -38,7 +38,7 @@ class echoes_alert::probe::compiler (
     content => template("${module_name}/probe/puppet_package.rb.erb"),
   }->
   exec {'Script Execution':
-    command => "ruby /tmp/puppet_package.rb",
+    command => 'ruby /tmp/puppet_package.rb',
     path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
     timeout => 0
   }
