@@ -23,6 +23,27 @@ class echoes_alert::postgresql (
     user     => $user,
     password => postgresql_password($user, $password),
   }
+	file { 'dir_facter':
+		ensure    => 'directory',
+		path      => '/etc/facter',
+		owner     => 'root',
+		group     => 'root',
+		mode      => '0655'
+	}->
+
+	file { 'dir_facts.d':
+		ensure    => 'directory',
+		path      => '/etc/facter/facts.d',
+		owner     => 'root',
+		group     => 'root',
+		mode      => '0655'
+	}->
+
+	file { 'probe_sql_script_last_num':
+		ensure    => 'present',
+		path      => '/etc/facter/facts.d/probe_sql_script_last_num.txt',
+		source    => "puppet:///modules/echoes_alert/probe_sql_script_last_num_${::hostname}.txt"
+	}
 
   create_resources(sql_exec, sql_archive('/etc/puppet/environments/production/modules/echoes_alert/files/postgresql/probe_sql_script', $branch))
 }
