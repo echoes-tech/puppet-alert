@@ -1,6 +1,6 @@
 define echoes_alert::addon (
   $branch  = 'master',
-  $version = 'latest',
+  $version = 'latest'
 ) {
   validate_string($branch)
   validate_string($version)
