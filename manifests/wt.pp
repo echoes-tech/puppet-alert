@@ -55,6 +55,12 @@ class echoes_alert::wt (
     recurse => true
   }
 
+  exec { 'ldconfig':
+    path          => ['/sbin'],
+    refreshonly   => true,
+    subscribe     => File['/usr/local/lib'],
+  }
+
   if $api or $gui {
     if $api {
       $sms_login       = "contact@echoes-tech.com"
