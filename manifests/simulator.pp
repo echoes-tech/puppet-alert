@@ -5,7 +5,14 @@ class echoes_alert::simulator (
 ) inherits echoes_alert::params {
   #validate_re($port, '^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$')
 
-  #require apache
+  class { 'apache':
+    default_vhost    => false,
+    server_tokens    => 'Prod',
+    server_signature => 'Off',
+    trace_enable     => 'Off',
+    mpm_module       => 'prefork'
+  }
+
   require apache::mod::php
 
   apache::vhost { $servername:

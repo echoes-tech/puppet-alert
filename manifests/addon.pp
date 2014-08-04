@@ -1,18 +1,16 @@
 define echoes_alert::addon (
   $branch  = 'master',
-  $version = 'latest'
+  $version = 'latest',
 ) {
-  validate_string($branch)
-  validate_string($version)
+  validate_string($branch, $version)
 
-  file { "/var/www/wt/probe/addons/${title}":
+  file { "${echoes_alert::api::probe_dir}/addons/${title}":
     ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
+    owner   => 0,
+    group   => 0,
     source  => "puppet:///modules/${module_name}/probe/addons/${title}/${branch}/${version}",
     recurse => true,
     purge   => true,
     links   => follow,
-    require => File ['/var/www/wt/probe/addons']
   }
 }

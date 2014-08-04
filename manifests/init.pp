@@ -66,7 +66,7 @@ class echoes_alert (
   validate_bool($engine)
   validate_bool($rsyslog)
 
-  if ($postgresql) {
+  if $postgresql {
     class { 'echoes_alert::postgresql':
       branch   => $branch,
       version  => $version,
@@ -76,7 +76,7 @@ class echoes_alert (
       ipv4acls => $postgresql_ipv4acls,
     }
   }
-  if ($api or $gui or $engine or $rsyslog) {
+  if $api or $gui or $engine or $rsyslog {
     class { 'echoes_alert::wt':
       branch            => $branch,
       version           => $version,
@@ -95,28 +95,63 @@ class echoes_alert (
       version => $version,
     }
 
-    if ($api and $api_ssl or $gui and $gui_ssl or $rsyslog) {
-      class { 'openssl':
-        domains => {
-          'echoes-tech.com' => {
-            domain => 'echoes-tech.com'
-          },
-        },
-      }
+    file { $install_dir:
+      ensure => 'directory',
+      owner  => 0,
+      group  => 0,
+      mode   => '0755'
     }
 
-    if ($api or $gui) {
-      class { 'apache':
-        default_vhost    => false,
-        server_tokens    => 'Prod',
-        server_signature => 'Off',
-        trace_enable     => 'Off',
-        # Add for simulator.pp ToDo: enhancement
-        #mpm_module       => 'prefork'
-      }->
-      package { 'libfcgi0ldbl':
-        ensure => 'present'
+    file { $log_dir:
+      ensure => 'directory',
+      owner  => 0,
+      group  => 0,
+      mode   => '0755'
+    }
+ 
+    if $api or $gui {
+      if $api_ssl or $gui_ssl {
+        $domain = 'echoes-tech.com'
+        $cert_bundle = "/etc/ssl/${domain}/bundle-${domain}.crt"
+        class { 'openssl':
+          domains => {
+            'echoes-tech.com' => {
+              domain => 'echoes-tech.com'
+            },
+          },
+        }->
+        concat { $cert_bundle:
+           owner => 0,
+           group => 'ssl-cert',
+           mode  => '0640',
+        }
+        concat::fragment { "cert ${domain}":
+           target => $cert_bundle,
+           source => "/etc/ssl/${domain}/cert-${domain}.crt",
+           order  => 01,
+        }
+        concat::fragment { "New Line":
+           target  => $cert_bundle,
+           content => "\n",
+           order   => 10
+        }
+        concat::fragment { "Gandi CA cert":
+           target => $cert_bundle,
+           source => "/etc/ssl/${domain}/GandiStandardSSLCA.pem",
+           order   => 15
+        }
+        exec { 'openssl dhparam -check -text -5 1024 -out /etc/ssl/dh1024.pem':
+          path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
+          creates => '/etc/ssl/dh1024.pem',
+        }
+        #ToDo: Improve this
+        exec { "chmod 600 /etc/ssl/${domain}/${domain}.key":
+          path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
+          unless  => "[ $(stat -c %a /etc/ssl/${domain}/${domain}.key) == 600 ]",
+          require => Class[ 'openssl']
+        } 
       }
+
       file { '/tmp/exim4-config.preseed':
         source => "puppet:///modules/${module_name}/exim4-config.preseed",
         mode   => '0600',
@@ -125,7 +160,7 @@ class echoes_alert (
       package { 'exim4-daemon-light':
         ensure       => 'present',
         responsefile => '/tmp/exim4-config.preseed',
-        require      => [ File['/tmp/exim4-config.preseed'] ]
+        require      => File['/tmp/exim4-config.preseed'],
       }->
       file { '/etc/exim4/exim4.conf.localmacros':
         source => "puppet:///modules/${module_name}/exim4.conf.localmacros",
@@ -141,12 +176,13 @@ class echoes_alert (
         ensure    => 'running',
         subscribe =>  [ File['/etc/exim4/exim4.conf.localmacros'], File['/etc/exim4/passwd.client'] ]
       }
-      if ($api) {
+      if $api {
         class { 'echoes_alert::api':
           branch            => $branch,
           version           => $version,
+          install_dir       => "${install_dir}/api",
+          log_dir           => $log_dir,
           servername        => $api_host,
-          serveralias       => $api_serveralias,
           port              => $api_port,
           ssl               => $api_ssl,
           ssl_port          => $api_ssl_port,
@@ -157,12 +193,13 @@ class echoes_alert (
           addons            => $api_addons
         }
       }
-      if ($gui) {
+      if $gui {
         class { 'echoes_alert::gui':
           branch            => $branch,
           version           => $version,
+          install_dir       => "${install_dir}/gui",
+          log_dir           => $log_dir,
           servername        => $gui_host,
-          serveralias       => $gui_serveralias,
           port              => $gui_port,
           ssl               => $gui_ssl,
           ssl_port          => $gui_ssl_port,
@@ -172,60 +209,40 @@ class echoes_alert (
           database_password => $database_password,
         }
       }
-      file { '/etc/apache2/mods-available/fcgid.conf':
-        ensure => file,
-        owner  => 'www-data',
-        group  => 'www-data',
-        mode   => '0644',
-        source => "puppet:///modules/${module_name}/fcgid.conf"
-      }->
-      file { '/etc/apache2/mods-enabled/fcgid.conf':
-        ensure => link,
-        target => '/etc/apache2/mods-available/fcgid.conf'
+    }
+    if $engine {
+      class { 'echoes_alert::engine':
+        branch            => $branch,
+        version           => $version,
+        install_dir       => "${install_dir}/engine",
+        log_dir           => $log_dir,
+        database_host     => $database_host,
+        database_name     => $database_name,
+        database_user     => $database_user,
+        database_password => $database_password,
+        api_host          => $engine_api_host,
+        api_port          => $engine_api_port,
       }
     }
-    if ($engine or $rsyslog)
-    {
-      file { $install_dir:
-        ensure => 'directory',
-        owner  => 0,
-        group  => 0,
-        mode   => '0755'
+    if $rsyslog {
+      class { 'openssl':
+        domains => {
+          'echoes-tech.com' => {
+            domain => 'echoes-tech.com'
+          },
+        },
       }
 
-      file { $log_dir:
-        ensure => 'directory',
-        owner  => 0,
-        group  => 0,
-        mode   => '0755'
-      }
-
-      if ($engine) {
-        class { 'echoes_alert::engine':
-          branch            => $branch,
-          version           => $version,
-          install_dir       => "${install_dir}/engine",
-          log_dir           => $log_dir,
-          database_host     => $database_host,
-          database_name     => $database_name,
-          database_user     => $database_user,
-          database_password => $database_password,
-          api_host          => $engine_api_host,
-          api_port          => $engine_api_port,
-        }
-      }
-      if ($rsyslog) {
-        class { 'echoes_alert::rsyslog':
-          branch            => $branch,
-          version           => $version,
-          install_dir       => "${install_dir}/rsyslog",
-          log_dir           => $log_dir,
-          port              => $rsyslog_port,
-          database_host     => $database_host,
-          database_name     => $database_name,
-          database_user     => $database_user,
-          database_password => $database_password,
-        }
+      class { 'echoes_alert::rsyslog':
+        branch            => $branch,
+        version           => $version,
+        install_dir       => "${install_dir}/rsyslog",
+        log_dir           => $log_dir,
+        port              => $rsyslog_port,
+        database_host     => $database_host,
+        database_name     => $database_name,
+        database_user     => $database_user,
+        database_password => $database_password,
       }
     }
   }

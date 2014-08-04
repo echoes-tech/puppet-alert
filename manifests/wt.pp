@@ -53,18 +53,17 @@ class echoes_alert::wt (
     #source  => "puppet:///modules/${module_name}/wt/${branch}/${version}/lib",
     source  => "puppet:///modules/${module_name}/wt/${version}/lib",
     recurse => true
-  }
-
+  }->
   exec { 'ldconfig':
-    path          => ['/sbin'],
-    refreshonly   => true,
-    subscribe     => File['/usr/local/lib'],
+    path        => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
+    refreshonly => true,
+    subscribe   => File['/usr/local/lib'],
   }
 
   if $api or $gui {
     if $api {
-      $sms_login       = "contact@echoes-tech.com"
-      $sms_password    = "00SjmAuiItooki"
+      $sms_login    = "contact@echoes-tech.com"
+      $sms_password = "00SjmAuiItooki"
     }
 
     file { '/etc/wt':
@@ -82,11 +81,12 @@ class echoes_alert::wt (
       content => template("${module_name}/wt/wt_config.xml.erb")
     }
 
-    file { '/var/run/wt':
-      ensure => directory,
-      owner  => 'www-data',
-      group  => 'www-data',
+    file { '/etc/logrotate.d/wthttp':
+      ensure => 'file',
+      owner  => 0,
+      group  => 0,
       mode   => '0644',
+      source => "puppet:///modules/${module_name}/wthttp.logrotate",
     }
   }
 }

@@ -39,9 +39,11 @@
 	       Note: currently only supported using the FastCGI connector
               -->
 
+	    <!--
 	       <dedicated-process>
 		 <max-num-sessions>100</max-num-sessions>
 	       </dedicated-process>
+	      -->
 
 	    <!-- Multiple sessions within one process.
 
@@ -62,11 +64,9 @@
 
 	       Note: wthttpd always uses exactly one process
               -->
-	    <!--
 	    <shared-process>
 	        <num-processes>1</num-processes>
 	    </shared-process>
-	      -->
 
 	    <!-- Session tracking strategy.
 
@@ -226,7 +226,7 @@
 	   (e.g. for apache + fastcgi module), or on stderr (e.g. for
 	   the built-in httpd).
          -->
-	<log-file></log-file>
+	<log-file>/var/log/echoes-alert/wthttp.log</log-file>
 
 	<!-- Logger configuration
 

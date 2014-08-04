@@ -1,8 +1,9 @@
 class echoes_alert::api (
   $branch            = $echoes_alert::params::branch,
   $version           = $echoes_alert::params::version,
+  $install_dir       = "${echoes_alert::params::install_dir}/api",
+  $log_dir           = $echoes_alert::params::log_dir,
   $servername        = $echoes_alert::params::api_host,
-  $serveralias       = $echoes_alert::params::serveralias,
   $port              = $echoes_alert::params::http_port,
   $ssl               = true,
   $ssl_port          = $echoes_alert::params::https_port,
@@ -12,44 +13,110 @@ class echoes_alert::api (
   $database_password = $echoes_alert::params::database_password,
   $addons            = $echoes_alert::params::addons
 ) inherits echoes_alert::params {
-  validate_string($branch)
-  validate_string($version)
+  validate_string($branch, $version, $install_dir)
   validate_string($servername)
-  validate_array($serveralias)
   #validate_re($port, '^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$')
   validate_bool($ssl)
   #validate_re($ssl_port, '^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$')
-  validate_string($database_host)
-  validate_string($database_name)
-  validate_string($database_user)
-  validate_string($database_password)
+  validate_string($database_host, $database_name, $database_user, $database_password)
   validate_hash($addons)
 
   require echoes_alert::dbo
-  #require apache
-  require apache::mod::rewrite
-  require apache::mod::fcgid
 
-  if ($ssl)
+  $libboost_name    = 'libboost'
+  $libboost_version = '1.49.0'
+  package { "${libboost_name}-program-options${libboost_version}":
+    ensure => 'present'
+  }
+
+  $service_name   = 'ea-api'
+  $bin_file       = "${install_dir}/bin/${service_name}"
+  $default_file   = "/etc/default/${service_name}"
+  $init_file      = "/etc/init.d/${service_name}"
+  $logrotate_file = "/etc/logrotate.d/${service_name}"
+  $probe_dir      = "${install_dir}/probe"
+
+  file { $install_dir:
+    ensure => 'directory',
+    owner  => 0,
+    group  => 0,
+    mode   => '0755'
+  }
+
+  file { "${install_dir}/bin":
+    ensure => 'directory',
+    owner  => 0,
+    group  => 0,
+    mode   => '0755'
+  }
+
+  file { $bin_file:
+    ensure => 'file',
+    owner  => 0,
+    group  => 0,
+    mode   => '0755',
+    source => "puppet:///modules/${module_name}/api/${branch}/${version}/api",
+  }
+
+  file { $probe_dir:
+    ensure  => directory,
+    owner   => 'www-data',
+    group   => 'www-data',
+    mode    => '0644',
+  }
+  file { "${probe_dir}/core":
+    ensure  => directory,
+    owner   => 'www-data',
+    group   => 'www-data',
+    source  => "puppet:///modules/${module_name}/probe/core/${branch}/${version}",
+    recurse => true,
+    purge   => true,
+    links   => follow,
+  }
+  file { "${probe_dir}/addons":
+    ensure  => directory,
+    owner   => 'www-data',
+    group   => 'www-data',
+    mode    => '0644',
+  }
+  create_resources(addon, $addons)
+
+  file { $default_file:
+    ensure  => 'file',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
+    content => template("${module_name}/api/${branch}/${version}${default_file}.erb"),
+  }
+
+  file { $init_file:
+    ensure  => file,
+    owner   => 0,
+    group   => 0,
+    mode    => '0755',
+    content => template("${module_name}/api/${branch}/${version}${init_file}.erb"),
+  }
+
+  file { $logrotate_file:
+    ensure => 'file',
+    owner  => 0,
+    group  => 0,
+    mode   => '0644',
+    source => "puppet:///modules/${module_name}/api/${branch}/${version}${logrotate_file}",
+  }
+
+  service { $service_name:
+    ensure     => 'running',
+    enable     => true,
+    hasrestart => true,
+    hasstatus  => true,
+    require    => File[$init_file],
+    subscribe  => [ File[$bin_file], File[$default_file], File[$init_file] ],
+  }
+
+  if $ssl
   {
-    require apache::mod::ssl
     require openssl
-    apache::vhost { "${$servername}-ssl":
-      servername    => $servername,
-      port          => $ssl_port,
-      serveradmin   => 'webmaster@echoes-tech.com',
-      serveraliases => $serveraliases,
-      ssl           => true,
-      ssl_cert      => '/etc/ssl/echoes-tech.com/cert-echoes-tech.com.crt',
-      ssl_key       => '/etc/ssl/echoes-tech.com/echoes-tech.com.key',
-      ssl_ca        => '/etc/ssl/echoes-tech.com/GandiStandardSSLCA.pem',
-      docroot       => '/var/www/wt',
-      directories   => {
-        path    => '/var/www/wt',
-        options => '+ExecCGI +FollowSymLinks -Indexes',
-      },
-      rewrite_rule  => '^(.*)$ /api.wt/$1 [L]',
-    }
     firewall { '100 allow API HTTPs access':
       port  => [ $ssl_port ],
       proto => 'tcp',
@@ -61,24 +128,8 @@ class echoes_alert::api (
       jump     => 'allowed',
       provider => 'ip6tables',
     }
-    $redirect_dest = "https://${servername}:$ssl_port"
-  } else {
-    $redirect_dest = undef
   }
 
-  apache::vhost { $servername:
-    port            => $port,
-    serveradmin     => 'webmaster@echoes-tech.com',
-    serveraliases   => $serveraliases,
-    #redirect_status => 'permanent',
-    #redirect_dest   => $redirect_dest,
-    docroot         => '/var/www/wt',
-    directories     => {
-      path    => '/var/www/wt',
-      options => '+ExecCGI +FollowSymLinks -Indexes',
-    },
-    rewrite_rule    => '^(.*)$ /api.wt/$1 [L]',
-  }
   firewall { '100 allow API HTTP access':
     port  => [ $port ],
     proto => 'tcp',
@@ -90,37 +141,4 @@ class echoes_alert::api (
     jump     => 'allowed',
     provider => 'ip6tables',
   }
-
-  file { '/var/www/wt/api.wt':
-    ensure => file,
-    owner  => 'www-data',
-    group  => 'www-data',
-    mode   => '0755',
-    source => "puppet:///modules/${module_name}/api/${branch}/${version}/api",
-  }
-
-  file { '/var/www/wt/probe':
-    ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
-    mode    => '0644',
-    require => File['/var/www/wt']
-  }->
-  file { '/var/www/wt/probe/core':
-    ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
-    source  => "puppet:///modules/${module_name}/probe/core/${branch}/${version}",
-    recurse => true,
-    purge   => true,
-    links   => follow,
-  }
-  file { '/var/www/wt/probe/addons':
-    ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
-    mode    => '0644',
-    require => File['/var/www/wt/probe']
-  }
-  create_resources(addon, $addons)
 }
