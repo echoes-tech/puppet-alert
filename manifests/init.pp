@@ -28,43 +28,80 @@
 # Copyright 2014 ECHOES Technologies SAS, unless otherwise noted.
 #
 class echoes_alert (
-  $branch              = $echoes_alert::params::branch,
-  $version             = $echoes_alert::params::version,
-  $install_dir         = $echoes_alert::params::install_dir,
-  $log_dir             = $echoes_alert::params::log_dir,
-  $postgresql          = false,
-  $postgresql_ipv4acls = $echoes_alert::params::postgresql_ipv4acls,
-  $database_host       = $echoes_alert::params::database_host,
-  $database_name       = $echoes_alert::params::database_name,
-  $database_user       = $echoes_alert::params::database_user,
-  $database_password   = $echoes_alert::params::database_password,
-  $api                 = false,
-  $api_host            = $echoes_alert::params::api_host,
-  $api_serveralias     = $echoes_alert::params::serveralias,
-  $api_port            = $echoes_alert::params::http_port,
-  $api_ssl             = true,
-  $api_ssl_port        = $echoes_alert::params::https_port,
-  $api_addons          = $echoes_alert::params::addons,
-  $gui                 = false,
-  $gui_host            = $echoes_alert::params::gui_host,
-  $gui_serveralias     = $echoes_alert::params::serveralias,
-  $gui_port            = $echoes_alert::params::http_port,
-  $gui_ssl             = true,
-  $gui_ssl_port        = $echoes_alert::params::https_port,
-  $gui_api_host        = $api_host,
-  $gui_api_port        = $api_ssl_port,
-  $engine              = false,
-  $engine_api_host     = $api_host,
-  $engine_api_port     = $api_ssl_port,
-  $rsyslog             = false,
-  $rsyslog_port        = $echoes_alert::params::https_port,
-  $smtp_host           = $echoes_alert::params::smtp_host
+  $branch                  = $echoes_alert::params::branch,
+  $version                 = $echoes_alert::params::version,
+  $install_dir             = $echoes_alert::params::install_dir,
+  $log_dir                 = $echoes_alert::params::log_dir,
+  $postgresql              = false,
+  $postgresql_ipv4acls     = $echoes_alert::params::postgresql_ipv4acls,
+  $database_host           = $echoes_alert::params::database_host,
+  $database_name           = $echoes_alert::params::database_name,
+  $database_user           = $echoes_alert::params::database_user,
+  $database_password       = $echoes_alert::params::database_password,
+  $api                     = false,
+  $api_host                = $echoes_alert::params::api_host,
+  $api_serveralias         = $echoes_alert::params::serveralias,
+  $api_port                = $echoes_alert::params::http_port,
+  $api_ssl                 = true,
+  $api_ssl_port            = $echoes_alert::params::https_port,
+  $api_addons              = $echoes_alert::params::addons,
+  $gui                     = false,
+  $gui_host                = $echoes_alert::params::gui_host,
+  $gui_serveralias         = $echoes_alert::params::serveralias,
+  $gui_port                = $echoes_alert::params::http_port,
+  $gui_ssl                 = true,
+  $gui_ssl_port            = $echoes_alert::params::https_port,
+  $gui_api_host            = $api_host,
+  $gui_api_port            = $api_ssl_port,
+  $engine                  = false,
+  $engine_api_host         = $api_host,
+  $engine_api_port         = $api_ssl_port,
+  $rsyslog                 = false,
+  $rsyslog_port            = $echoes_alert::params::https_port,
+  $smtp_host               = $echoes_alert::params::smtp_host,
+  $gtm                     = false,
+  $gtm_standby             = false,
+  $pgxc                    = false,
+  $datanode_slave          = true,
+  $other_database_hostname = '',
+  $other_database_ip       = '',
+  $gtm_hostname            = $postgres_xc::params::gtm_hostname,
+  $gtm_standby_hostname    = $postgres_xc::params::gtm_standby_hostname
 ) inherits echoes_alert::params {
   validate_bool($postgresql)
   validate_bool($api)
   validate_bool($gui)
   validate_bool($engine)
   validate_bool($rsyslog)
+
+  if $gtm {
+     class { 'postgres_xc': 
+       gtm       => $gtm,
+     }
+   }
+ 
+  if $gtm_standby {
+    class { 'postgres_xc':
+      gtm_standby       => $gtm_standby,
+      gtm_hostname      => $gtm_hostname,
+    }
+  }
+
+  if $pgxc {
+    class { 'echoes_alert::pgxc': 
+      branch                   => $branch,
+      version                  => $version,
+      dbname                   => $database_name,
+      user                     => $database_user,
+      password                 => $database_password,
+      ipv4acls                 => $postgresql_ipv4acls,
+      database                 => $pgxc,
+      other_database_hostname  => $other_database_hostname,
+      other_database_ip        => $other_database_ip,
+      gtm_hostname             => $gtm_hostname,
+      gtm_standby_hostname     => $gtm_standby_hostname,
+    }
+  }
 
   if $postgresql {
     class { 'echoes_alert::postgresql':
