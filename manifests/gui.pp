@@ -21,18 +21,12 @@ class echoes_alert::gui (
 
   require echoes_alert::dbo
 
-  $libboost_name    = 'libboost'
-  $libboost_version = '1.49.0'
-  package { "${libboost_name}-program-options${libboost_version}":
-    ensure => 'present'
-  }
-
-
   $service_name   = 'ea-gui'
   $bin_file       = "${install_dir}/bin/${service_name}"
   $default_file   = "/etc/default/${service_name}"
   $init_file      = "/etc/init.d/${service_name}"
   $logrotate_file = "/etc/logrotate.d/${service_name}"
+  $monit_file     = "/etc/monit/conf.d/${service_name}"
 
   file { $install_dir:
     ensure => 'directory',
@@ -118,6 +112,15 @@ class echoes_alert::gui (
     source => "puppet:///modules/${module_name}/gui/${branch}/${version}${logrotate_file}",
   }
 
+  file { $monit_file:
+    ensure  => 'file',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
+    content => template("${module_name}/gui/${branch}/${version}${monit_file}.erb"),
+    notify  => Service['monit'],
+  }
+
   service { $service_name:
     ensure     => 'running',
     enable     => true,
@@ -148,7 +151,7 @@ class echoes_alert::gui (
     proto => 'tcp',
     jump  => 'allowed',
   }->
-  firewall { '100 allow GUI HTTP access:IPv6':
+  firewall { '100 allow GUII HTTP access:IPv6':
     port     => [ $port ],
     proto    => 'tcp',
     jump     => 'allowed',

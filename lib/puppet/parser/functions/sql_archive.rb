@@ -26,9 +26,9 @@ module Puppet::Parser::Functions
     file_list = Dir['*.sql'].select {|x| x =~ /^(#{first}#{second}[#{third + 1}-9]|#{first}[#{second + 1}-9][0-9]|[#{first + 1}-9][0-9][0-9])_insert_*/ }.sort
 
     if file_list.any?
-      filename = "#{arguments[0]}/last_num_#{lookupvar('hostname')}.txt" 
-      File.open(filename, 'w+') { |file| file.write("probe_sql_script_last_num=#{file_list.last[0,3]}") } 
-      `chmod 664 #{filemane}`
+      filename = "#{arguments[0]}/last_num_#{lookupvar('hostname')}.txt"
+      File.open(filename, 'w+') { |file| file.write("probe_sql_script_last_num=#{file_list.last[0,3]}") }
+      `chmod 664 #{filename}`
     end
 
     return Hash[file_list.map {|v| ['/tmp/' + v, Hash['branch', branch, 'source', v]]}]

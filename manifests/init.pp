@@ -44,6 +44,9 @@ class echoes_alert (
   $api_port            = $echoes_alert::params::http_port,
   $api_ssl             = true,
   $api_ssl_port        = $echoes_alert::params::https_port,
+  $api_probe_branch    = $branch,
+  $api_probe_version   = $version,
+  $api_addons          = $echoes_alert::params::addons,
   $api_addons          = $echoes_alert::params::addons,
   $gui                 = false,
   $gui_host            = $echoes_alert::params::gui_host,
@@ -108,37 +111,52 @@ class echoes_alert (
       group  => 0,
       mode   => '0755'
     }
- 
+
+    if $rsyslog or $api or $gui {
+      class { 'openssl':
+        domains => {
+          'echoes-tech.com' => {
+            domain => 'echoes-tech.com'
+          },
+        },
+      }
+    }
+
+    if $engine or $api or $gui {
+      $libboost_name    = 'libboost'
+      $libboost_version = '1.49.0'
+      package { "${libboost_name}-program-options${libboost_version}":
+        ensure => 'present'
+      }
+      class { 'monit':
+        check_interval => 2,
+      }
+    }
+
     if $api or $gui {
       if $api_ssl or $gui_ssl {
         $domain = 'echoes-tech.com'
         $cert_bundle = "/etc/ssl/${domain}/bundle-${domain}.crt"
-        class { 'openssl':
-          domains => {
-            'echoes-tech.com' => {
-              domain => 'echoes-tech.com'
-            },
-          },
-        }->
         concat { $cert_bundle:
-           owner => 0,
-           group => 'ssl-cert',
-           mode  => '0640',
+          owner   => 0,
+          group   => 'ssl-cert',
+          mode    => '0640',
+          require => Class[ 'openssl' ],
         }
         concat::fragment { "cert ${domain}":
-           target => $cert_bundle,
-           source => "/etc/ssl/${domain}/cert-${domain}.crt",
-           order  => 01,
+          target => $cert_bundle,
+          source => "/etc/ssl/${domain}/cert-${domain}.crt",
+          order  => 01,
         }
-        concat::fragment { "New Line":
-           target  => $cert_bundle,
-           content => "\n",
-           order   => 10
+        concat::fragment { 'New Line':
+          target  => $cert_bundle,
+          content => "\n",
+          order   => 10
         }
-        concat::fragment { "Gandi CA cert":
-           target => $cert_bundle,
-           source => "/etc/ssl/${domain}/GandiStandardSSLCA.pem",
-           order   => 15
+        concat::fragment { 'Gandi CA cert':
+          target => $cert_bundle,
+          source => "/etc/ssl/${domain}/GandiStandardSSLCA.pem",
+          order  => 15
         }
         exec { 'openssl dhparam -check -text -5 1024 -out /etc/ssl/dh1024.pem':
           path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
@@ -149,7 +167,7 @@ class echoes_alert (
           path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
           unless  => "[ $(stat -c %a /etc/ssl/${domain}/${domain}.key) == 600 ]",
           require => Class[ 'openssl']
-        } 
+        }
       }
 
       file { '/tmp/exim4-config.preseed':
@@ -178,19 +196,22 @@ class echoes_alert (
       }
       if $api {
         class { 'echoes_alert::api':
-          branch            => $branch,
-          version           => $version,
-          install_dir       => "${install_dir}/api",
-          log_dir           => $log_dir,
-          servername        => $api_host,
-          port              => $api_port,
-          ssl               => $api_ssl,
-          ssl_port          => $api_ssl_port,
-          database_host     => $database_host,
-          database_name     => $database_name,
-          database_user     => $database_user,
-          database_password => $database_password,
-          addons            => $api_addons
+          branch               => $branch,
+          version              => $version,
+          install_dir          => "${install_dir}/api",
+          log_dir              => $log_dir,
+          servername           => $api_host,
+          port                 => $api_port,
+          ssl                  => $api_ssl,
+          ssl_port             => $api_ssl_port,
+          database_host        => $database_host,
+          database_name        => $database_name,
+          database_user        => $database_user,
+          database_password    => $database_password,
+          probe_branch         => $api_probe_branch,
+          probe_version        => $api_probe_version,
+          addons               => $api_addons,
+          postgresql_installed => $postgresql
         }
       }
       if $gui {
@@ -225,14 +246,6 @@ class echoes_alert (
       }
     }
     if $rsyslog {
-      class { 'openssl':
-        domains => {
-          'echoes-tech.com' => {
-            domain => 'echoes-tech.com'
-          },
-        },
-      }
-
       class { 'echoes_alert::rsyslog':
         branch            => $branch,
         version           => $version,

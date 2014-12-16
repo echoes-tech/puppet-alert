@@ -68,15 +68,15 @@ class echoes_alert::wt (
 
     file { '/etc/wt':
       ensure => directory,
-      owner  => 'www-data',
-      group  => 'www-data',
+      owner  => 0,
+      group  => 0,
       mode   => '0644',
     }
 
     file { '/etc/wt/wt_config.xml':
       ensure  => file,
-      owner   => 'www-data',
-      group   => 'www-data',
+      owner   => 0,
+      group   => 0,
       mode    => '0644',
       content => template("${module_name}/wt/wt_config.xml.erb")
     }

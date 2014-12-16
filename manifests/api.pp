@@ -1,17 +1,20 @@
 class echoes_alert::api (
-  $branch            = $echoes_alert::params::branch,
-  $version           = $echoes_alert::params::version,
-  $install_dir       = "${echoes_alert::params::install_dir}/api",
-  $log_dir           = $echoes_alert::params::log_dir,
-  $servername        = $echoes_alert::params::api_host,
-  $port              = $echoes_alert::params::http_port,
-  $ssl               = true,
-  $ssl_port          = $echoes_alert::params::https_port,
-  $database_host     = $echoes_alert::params::database_host,
-  $database_name     = $echoes_alert::params::database_name,
-  $database_user     = $echoes_alert::params::database_user,
-  $database_password = $echoes_alert::params::database_password,
-  $addons            = $echoes_alert::params::addons
+  $branch               = $echoes_alert::params::branch,
+  $version              = $echoes_alert::params::version,
+  $install_dir          = "${echoes_alert::params::install_dir}/api",
+  $log_dir              = $echoes_alert::params::log_dir,
+  $servername           = $echoes_alert::params::api_host,
+  $port                 = $echoes_alert::params::http_port,
+  $ssl                  = true,
+  $ssl_port             = $echoes_alert::params::https_port,
+  $database_host        = $echoes_alert::params::database_host,
+  $database_name        = $echoes_alert::params::database_name,
+  $database_user        = $echoes_alert::params::database_user,
+  $database_password    = $echoes_alert::params::database_password,
+  $probe_branch         = $echoes_alert::params::branch,
+  $probe_version        = $echoes_alert::params::version,
+  $addons               = $echoes_alert::params::addons,
+  $postgresql_installed = false,
 ) inherits echoes_alert::params {
   validate_string($branch, $version, $install_dir)
   validate_string($servername)
@@ -23,18 +26,15 @@ class echoes_alert::api (
 
   require echoes_alert::dbo
 
-  $libboost_name    = 'libboost'
-  $libboost_version = '1.49.0'
-  package { "${libboost_name}-program-options${libboost_version}":
-    ensure => 'present'
-  }
-
-  $service_name   = 'ea-api'
-  $bin_file       = "${install_dir}/bin/${service_name}"
-  $default_file   = "/etc/default/${service_name}"
-  $init_file      = "/etc/init.d/${service_name}"
-  $logrotate_file = "/etc/logrotate.d/${service_name}"
-  $probe_dir      = "${install_dir}/probe"
+  $service_name     = 'ea-api'
+  $bin_file         = "${install_dir}/bin/${service_name}"
+  $default_file     = "/etc/default/${service_name}"
+  $init_file        = "/etc/init.d/${service_name}"
+  $logrotate_file   = "/etc/logrotate.d/${service_name}"
+  $monit_file       = "/etc/monit/conf.d/${service_name}"
+  $probe_dir        = "${install_dir}/probe"
+  $db_init_bin_file = "${install_dir}/bin/table-initialisation"
+  $db_init_sql_file = "${install_dir}/bin/init_tr.sql"
 
   file { $install_dir:
     ensure => 'directory',
@@ -58,26 +58,52 @@ class echoes_alert::api (
     source => "puppet:///modules/${module_name}/api/${branch}/${version}/api",
   }
 
+  if $postgresql_installed {
+    require echoes_alert::postgresql
+    file { $db_init_bin_file:
+      ensure => 'file',
+      owner  => 0,
+      group  => 0,
+      mode   => '0755',
+      source => "puppet:///modules/${module_name}/table-initialisation/${branch}/${version}/table-initialisation"
+    }
+
+    require echoes_alert::postgresql
+    file { $db_init_sql_file:
+      ensure => 'file',
+      owner  => 0,
+      group  => 0,
+      mode   => '0755',
+      source => "puppet:///modules/${module_name}/table-initialisation/${branch}/${version}/init_tr.sql"
+    }
+
+    exec { $db_init_bin_file:
+      command => "${db_init_bin_file} -c /etc/wt/wt_config.xml --docroot . --http-address 0.0.0.0 --http-port 8081"
+    }
+
+    
+  }
+
   file { $probe_dir:
-    ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
-    mode    => '0644',
+    ensure => directory,
+    owner  => 0,
+    group  => 0,
+    mode   => '0644',
   }
   file { "${probe_dir}/core":
     ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
-    source  => "puppet:///modules/${module_name}/probe/core/${branch}/${version}",
+    owner   => 0,
+    group   => 0,
+    source  => "puppet:///modules/${module_name}/probe/core/${probe_branch}/${probe_version}",
     recurse => true,
     purge   => true,
     links   => follow,
   }
   file { "${probe_dir}/addons":
-    ensure  => directory,
-    owner   => 'www-data',
-    group   => 'www-data',
-    mode    => '0644',
+    ensure => directory,
+    owner  => 0,
+    group  => 0,
+    mode   => '0644',
   }
   create_resources(addon, $addons)
 
@@ -103,6 +129,15 @@ class echoes_alert::api (
     group  => 0,
     mode   => '0644',
     source => "puppet:///modules/${module_name}/api/${branch}/${version}${logrotate_file}",
+  }
+
+  file { $monit_file:
+    ensure  => 'file',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
+    content => template("${module_name}/api/${branch}/${version}${monit_file}.erb"),
+    notify  => Service['monit'],
   }
 
   service { $service_name:

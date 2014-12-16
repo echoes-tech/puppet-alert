@@ -24,9 +24,6 @@ class echoes_alert::engine (
   package { "${libboost_name}-serialization${libboost_version}":
     ensure => 'present'
   }
-  package { "${libboost_name}-program-options${libboost_version}":
-    ensure => 'present'
-  }
   package { 'openssl':
     ensure => 'latest',
   }
@@ -39,6 +36,8 @@ class echoes_alert::engine (
   $config_file  = "${install_dir}/etc/engine.conf"
   $default_file = "/etc/default/${service_name}"
   $init_file    = "/etc/init.d/${service_name}"
+  $logrotate_file = "/etc/logrotate.d/${service_name}"
+  $monit_file     = "/etc/monit/conf.d/${service_name}"
 
   file { $bin_file:
     ensure => 'file',
@@ -92,6 +91,24 @@ class echoes_alert::engine (
     mode    => '0755',
     content => template("${module_name}/engine/${branch}/${version}${init_file}.erb"),
   }
+
+  file { $logrotate_file:
+    ensure => 'file',
+    owner  => 0,
+    group  => 0,
+    mode   => '0644',
+    source => "puppet:///modules/${module_name}/engine/${branch}/${version}${logrotate_file}",
+  }
+
+  file { $monit_file:
+    ensure  => 'file',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
+    content => template("${module_name}/engine/${branch}/${version}${monit_file}.erb"),
+    notify  => Service['monit'],
+  }
+
 
   file { "${log_dir}/engine.log":
     ensure => 'file',
