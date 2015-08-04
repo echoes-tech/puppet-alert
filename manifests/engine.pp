@@ -9,6 +9,7 @@ class echoes_alert::engine (
   $database_password = $echoes_alert::params::database_password,
   $api_host          = $echoes_alert::params::api_host,
   $api_port          = $echoes_alert::params::https_port,
+  $api_https         = true,
 ) inherits echoes_alert::params {
   validate_string($branch)
   validate_string($version)
@@ -100,15 +101,9 @@ class echoes_alert::engine (
     source => "puppet:///modules/${module_name}/engine/${branch}/${version}${logrotate_file}",
   }
 
-  file { $monit_file:
-    ensure  => 'file',
-    owner   => 0,
-    group   => 0,
-    mode    => '0644',
+  monit::check { $service_name:
     content => template("${module_name}/engine/${branch}/${version}${monit_file}.erb"),
-    notify  => Service['monit'],
   }
-
 
   file { "${log_dir}/engine.log":
     ensure => 'file',

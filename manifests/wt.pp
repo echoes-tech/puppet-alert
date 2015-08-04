@@ -62,8 +62,8 @@ class echoes_alert::wt (
 
   if $api or $gui {
     if $api {
-      $sms_login    = "contact@echoes-tech.com"
-      $sms_password = "00SjmAuiItooki"
+      $sms_login    = 'contact@echoes-tech.com'
+      $sms_password = '00SjmAuiItooki'
     }
 
     file { '/etc/wt':

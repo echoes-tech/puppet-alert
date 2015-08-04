@@ -560,26 +560,26 @@
 	      -->
 	    <!-- <property name="favicon">images/favicon.ico</property> -->
 
-	    <property name="smtp-host"><%= smtp_host %></property>
+	    <property name="smtp-host"><%= @smtp_host %></property>
 	    <property name="smtp-port">25</property>
 	    <property name="alert-mail-sender-name">ECHOES Alert</property>
 	    <property name="alert-mail-sender-address">noreply-alert@echoes-tech.com</property>
 
-	    <property name="db-host"><%= database_host %></property>
+	    <property name="db-host"><%= @database_host %></property>
 	    <property name="db-port">5432</property>
-	    <property name="db-name"><%= database_name %></property>
-	    <property name="db-user"><%= database_user %></property>
-	    <property name="db-password"><%= database_password %></property>
+	    <property name="db-name"><%= @database_name %></property>
+	    <property name="db-user"><%= @database_user %></property>
+	    <property name="db-password"><%= @database_password %></property>
 <%- if @gui -%>
 
-	    <property name="api-host"><%= api_host %></property>
-	    <property name="api-port"><%= api_port %></property>
+	    <property name="api-host"><%= @api_host %></property>
+	    <property name="api-port"><%= @api_port %></property>
 	    <property name="api-https">true</property>
 <%- end -%>
 <%- if @api -%>
 
-	    <property name="sms-login"><%= sms_login %></property>
-	    <property name="sms-password"><%= sms_password %></property>
+	    <property name="sms-login"><%= @sms_login %></property>
+	    <property name="sms-password"><%= @sms_password %></property>
 	    <property name="sms-https">true</property>
 <%- end -%>
 	</properties>

@@ -15,16 +15,35 @@ class echoes_alert::simulator (
 
   require apache::mod::php
 
+  $simulator_dir = '/var/www/simulator'
+
   apache::vhost { $servername:
-    port            => $port,
-    serveradmin     => 'webmaster@echoes-tech.com',
-    serveraliases   => $serveraliases,
-    docroot         => '/var/www/simulator',
-    directories     => {
-      path    => '/var/www/wt',
+    port          => $port,
+    serveradmin   => 'webmaster@echoes-tech.com',
+    serveraliases => $serveraliases,
+    docroot       => $simulator_dir,
+    directories   => {
+      path    => $simulator_dir,
       options => '+ExecCGI +FollowSymLinks -Indexes',
     },
+  }->
+  file { $simulator_dir:
+    ensure  => directory,
+    owner   => 'www-data',
+    group   => 'www-data',
+    #source  => "puppet:///modules/${module_name}/simulator/${simulator_branch}/${simulator_version}",
+    source  => "puppet:///modules/${module_name}/simulator/master/latest",
+    ignore  => 'valeurs.txt',
+    recurse => true,
+    purge   => true,
+    links   => follow,
+  }->
+  file { "${simulator_dir}/valeurs.txt":
+    ensure => file,
+    owner  => 'www-data',
+    group  => 'www-data',
   }
+
   firewall { '100 allow Simulator HTTP access':
     port  => [ $port ],
     proto => 'tcp',

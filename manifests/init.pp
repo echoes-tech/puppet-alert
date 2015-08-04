@@ -59,6 +59,7 @@ class echoes_alert (
   $engine              = false,
   $engine_api_host     = $api_host,
   $engine_api_port     = $api_ssl_port,
+  $engine_api_https    = true,
   $rsyslog             = false,
   $rsyslog_port        = $echoes_alert::params::https_port,
   $smtp_host           = $echoes_alert::params::smtp_host
@@ -243,6 +244,7 @@ class echoes_alert (
         database_password => $database_password,
         api_host          => $engine_api_host,
         api_port          => $engine_api_port,
+        api_https         => $engine_api_https,
       }
     }
     if $rsyslog {

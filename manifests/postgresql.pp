@@ -16,7 +16,6 @@ class echoes_alert::postgresql (
   class { 'postgresql::server':
     listen_addresses => '*',
     ipv4acls         => $ipv4acls,
-    manage_firewall  => true,
   }
 
   postgresql::server::db { $dbname:
@@ -41,5 +40,6 @@ class echoes_alert::postgresql (
     source => "puppet:///modules/${module_name}/postgresql/probe_sql_script/last_num_${::hostname}.txt"
   }
 
-  create_resources(sql_exec, sql_archive("/etc/puppet/environments/production/modules/${module_name}/files/postgresql/probe_sql_script", $branch))
+  #create_resources(sql_exec, sql_archive("/etc/puppet/environments/production/modules/${module_name}/files/postgresql/probe_sql_script", $branch))
+  create_resources(sql_exec, sql_archive("/etc/puppet/environments/production/modules/${module_name}/files/postgresql/probe_sql_script", 'develop'))
 }

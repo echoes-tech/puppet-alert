@@ -131,13 +131,8 @@ class echoes_alert::api (
     source => "puppet:///modules/${module_name}/api/${branch}/${version}${logrotate_file}",
   }
 
-  file { $monit_file:
-    ensure  => 'file',
-    owner   => 0,
-    group   => 0,
-    mode    => '0644',
+  monit::check { $service_name:
     content => template("${module_name}/api/${branch}/${version}${monit_file}.erb"),
-    notify  => Service['monit'],
   }
 
   service { $service_name:

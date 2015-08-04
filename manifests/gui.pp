@@ -43,33 +43,33 @@ class echoes_alert::gui (
   }
 
   file { "${install_dir}/css":
-    ensure => 'directory',
-    owner  => 0,
-    group  => 0,
-    mode   => '0644',
+    ensure  => 'directory',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
     recurse => true,
     purge   => true,
-    source => "puppet:///modules/${module_name}/gui/${branch}/${version}/css",
+    source  => "puppet:///modules/${module_name}/gui/${branch}/${version}/css",
   }
 
   file { "${install_dir}/images":
-    ensure => 'directory',
-    owner  => 0,
-    group  => 0,
-    mode   => '0644',
+    ensure  => 'directory',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
     recurse => true,
     purge   => true,
-    source => "puppet:///modules/${module_name}/gui/${branch}/${version}/images",
+    source  => "puppet:///modules/${module_name}/gui/${branch}/${version}/images",
   }
 
   file { "${install_dir}/resources":
-    ensure => 'directory',
-    owner  => 0,
-    group  => 0,
-    mode   => '0644',
+    ensure  => 'directory',
+    owner   => 0,
+    group   => 0,
+    mode    => '0644',
     recurse => true,
     purge   => true,
-    source => "puppet:///modules/${module_name}/gui/${branch}/${version}/resources",
+    source  => "puppet:///modules/${module_name}/gui/${branch}/${version}/resources",
   }
 
   file { "${install_dir}/favicon.ico":
@@ -112,13 +112,8 @@ class echoes_alert::gui (
     source => "puppet:///modules/${module_name}/gui/${branch}/${version}${logrotate_file}",
   }
 
-  file { $monit_file:
-    ensure  => 'file',
-    owner   => 0,
-    group   => 0,
-    mode    => '0644',
+  monit::check { $service_name:
     content => template("${module_name}/gui/${branch}/${version}${monit_file}.erb"),
-    notify  => Service['monit'],
   }
 
   service { $service_name:
