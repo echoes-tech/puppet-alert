@@ -1,264 +1,46 @@
-# == Class: echoes_alert
-#
-# This module manages ECHOES Alert.
-#
-# === Parameters
-#
-# [*branch*]
-#   Select the Git branch.
-#   Default: master
-#
-# [*version*]
-#   Select the jobs number of Jenkins. Must be a integer or latest.
-#   Default: latest
-#
-# === Variables
-#
-# === Examples
-#
-#  class { echoes_alert:
-#  }
-#
-# === Authors
-#
-# Florent Poinsaut <florent.poinsaut@echoes-tech.com>
-#
-# === Copyright
-#
-# Copyright 2014 ECHOES Technologies SAS, unless otherwise noted.
-#
 class echoes_alert (
+  $api                 = $echoes_alert::params::api,
+  $api_http_port       = $echoes_alert::params::api_http_port,
+  $api_https           = $echoes_alert::params::api_https,
+  $api_https_port      = $echoes_alert::params::api_https_port,
+  $api_probe_addons    = $echoes_alert::params::api_probe_addons,
+  $api_probe_branch    = $branch,
+  $api_probe_version   = $version,
   $branch              = $echoes_alert::params::branch,
-  $version             = $echoes_alert::params::version,
-  $install_dir         = $echoes_alert::params::install_dir,
-  $log_dir             = $echoes_alert::params::log_dir,
-  $postgresql          = false,
-  $postgresql_ipv4acls = $echoes_alert::params::postgresql_ipv4acls,
+  $gui                 = $echoes_alert::params::gui,
+  $gui_http_port       = $echoes_alert::params::gui_http_port,
+  $gui_https           = $echoes_alert::params::gui_https,
+  $gui_https_port      = $echoes_alert::params::gui_https_port,
+  $gui_api_host        = $echoes_alert::params::gui_api_host,
+  $gui_api_https       = $echoes_alert::params::gui_api_https,
+  $gui_api_port        = $echoes_alert::params::gui_api_port,
   $database_host       = $echoes_alert::params::database_host,
   $database_name       = $echoes_alert::params::database_name,
   $database_user       = $echoes_alert::params::database_user,
   $database_password   = $echoes_alert::params::database_password,
-  $api                 = false,
-  $api_host            = $echoes_alert::params::api_host,
-  $api_serveralias     = $echoes_alert::params::serveralias,
-  $api_port            = $echoes_alert::params::http_port,
-  $api_ssl             = true,
-  $api_ssl_port        = $echoes_alert::params::https_port,
-  $api_probe_branch    = $branch,
-  $api_probe_version   = $version,
-  $api_addons          = $echoes_alert::params::addons,
-  $api_addons          = $echoes_alert::params::addons,
-  $gui                 = false,
-  $gui_host            = $echoes_alert::params::gui_host,
-  $gui_serveralias     = $echoes_alert::params::serveralias,
-  $gui_port            = $echoes_alert::params::http_port,
-  $gui_ssl             = true,
-  $gui_ssl_port        = $echoes_alert::params::https_port,
-  $gui_api_host        = $api_host,
-  $gui_api_port        = $api_ssl_port,
-  $engine              = false,
-  $engine_api_host     = $api_host,
-  $engine_api_port     = $api_ssl_port,
-  $engine_api_https    = true,
-  $rsyslog             = false,
-  $rsyslog_port        = $echoes_alert::params::https_port,
+  $engine              = $echoes_alert::params::engine,
+  $engine_api_host     = $echoes_alert::params::engine_api_host,
+  $engine_api_https    = $echoes_alert::params::engine_api_https,
+  $engine_api_port     = $echoes_alert::params::engine_api_port,
+  $install_dir         = $echoes_alert::params::install_dir,
+  $log_dir             = $echoes_alert::params::log_dir,
+  $manage_firewall     = $echoes_alert::params::manage_firewall,
+  $postgresql          = $echoes_alert::params::postgresql,
+  $postgresql_ipv4acls = $echoes_alert::params::postgresql_ipv4acls,
+  $rsyslog             = $echoes_alert::params::rsyslog,
+  $rsyslog_port        = $echoes_alert::params::rsyslog_port,
   $smtp_host           = $echoes_alert::params::smtp_host
+  $version             = $echoes_alert::params::version,
 ) inherits echoes_alert::params {
-  validate_bool($postgresql)
   validate_bool($api)
   validate_bool($gui)
   validate_bool($engine)
+  validate_bool($postgresql)
   validate_bool($rsyslog)
 
-  if $postgresql {
-    class { 'echoes_alert::postgresql':
-      branch   => $branch,
-      version  => $version,
-      dbname   => $database_name,
-      user     => $database_user,
-      password => $database_password,
-      ipv4acls => $postgresql_ipv4acls,
-    }
-  }
-  if $api or $gui or $engine or $rsyslog {
-    class { 'echoes_alert::wt':
-      branch            => $branch,
-      version           => $version,
-      api               => $api,
-      gui               => $gui,
-      api_host          => $gui_api_host,
-      api_port          => $gui_api_port,
-      database_host     => $database_host,
-      database_name     => $database_name,
-      database_user     => $database_user,
-      database_password => $database_password,
-      smtp_host         => $smtp_host,
-    }
-    class { 'echoes_alert::dbo':
-      branch  => $branch,
-      version => $version,
-    }
-
-    file { $install_dir:
-      ensure => 'directory',
-      owner  => 0,
-      group  => 0,
-      mode   => '0755'
-    }
-
-    file { $log_dir:
-      ensure => 'directory',
-      owner  => 0,
-      group  => 0,
-      mode   => '0755'
-    }
-
-    if $rsyslog or $api or $gui {
-      class { 'openssl':
-        domains => {
-          'echoes-tech.com' => {
-            domain => 'echoes-tech.com'
-          },
-        },
-      }
-    }
-
-    if $engine or $api or $gui {
-      $libboost_name    = 'libboost'
-      $libboost_version = '1.49.0'
-      package { "${libboost_name}-program-options${libboost_version}":
-        ensure => 'present'
-      }
-      class { 'monit':
-        check_interval => 2,
-      }
-    }
-
-    if $api or $gui {
-      if $api_ssl or $gui_ssl {
-        $domain = 'echoes-tech.com'
-        $cert_bundle = "/etc/ssl/${domain}/bundle-${domain}.crt"
-        concat { $cert_bundle:
-          owner   => 0,
-          group   => 'ssl-cert',
-          mode    => '0640',
-          require => Class[ 'openssl' ],
-        }
-        concat::fragment { "cert ${domain}":
-          target => $cert_bundle,
-          source => "/etc/ssl/${domain}/cert-${domain}.crt",
-          order  => 01,
-        }
-        concat::fragment { 'New Line':
-          target  => $cert_bundle,
-          content => "\n",
-          order   => 10
-        }
-        concat::fragment { 'Gandi CA cert':
-          target => $cert_bundle,
-          source => "/etc/ssl/${domain}/GandiStandardSSLCA.pem",
-          order  => 15
-        }
-        exec { 'openssl dhparam -check -text -5 1024 -out /etc/ssl/dh1024.pem':
-          path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
-          creates => '/etc/ssl/dh1024.pem',
-        }
-        #ToDo: Improve this
-        exec { "chmod 600 /etc/ssl/${domain}/${domain}.key":
-          path    => [ '/bin', '/sbin', '/usr/bin', '/usr/sbin' ],
-          unless  => "[ $(stat -c %a /etc/ssl/${domain}/${domain}.key) == 600 ]",
-          require => Class[ 'openssl']
-        }
-      }
-
-      file { '/tmp/exim4-config.preseed':
-        source => "puppet:///modules/${module_name}/exim4-config.preseed",
-        mode   => '0600',
-        backup => false,
-      }->
-      package { 'exim4-daemon-light':
-        ensure       => 'present',
-        responsefile => '/tmp/exim4-config.preseed',
-        require      => File['/tmp/exim4-config.preseed'],
-      }->
-      file { '/etc/exim4/exim4.conf.localmacros':
-        source => "puppet:///modules/${module_name}/exim4.conf.localmacros",
-        owner  => 0
-      }->
-      file { '/etc/exim4/passwd.client':
-        source => "puppet:///modules/${module_name}/passwd.client",
-        mode   => '0640',
-        owner  => 0,
-        group  => 'Debian-exim'
-      }->
-      service { 'exim4':
-        ensure    => 'running',
-        subscribe =>  [ File['/etc/exim4/exim4.conf.localmacros'], File['/etc/exim4/passwd.client'] ]
-      }
-      if $api {
-        class { 'echoes_alert::api':
-          branch               => $branch,
-          version              => $version,
-          install_dir          => "${install_dir}/api",
-          log_dir              => $log_dir,
-          servername           => $api_host,
-          port                 => $api_port,
-          ssl                  => $api_ssl,
-          ssl_port             => $api_ssl_port,
-          database_host        => $database_host,
-          database_name        => $database_name,
-          database_user        => $database_user,
-          database_password    => $database_password,
-          probe_branch         => $api_probe_branch,
-          probe_version        => $api_probe_version,
-          addons               => $api_addons,
-          postgresql_installed => $postgresql
-        }
-      }
-      if $gui {
-        class { 'echoes_alert::gui':
-          branch            => $branch,
-          version           => $version,
-          install_dir       => "${install_dir}/gui",
-          log_dir           => $log_dir,
-          servername        => $gui_host,
-          port              => $gui_port,
-          ssl               => $gui_ssl,
-          ssl_port          => $gui_ssl_port,
-          database_host     => $database_host,
-          database_name     => $database_name,
-          database_user     => $database_user,
-          database_password => $database_password,
-        }
-      }
-    }
-    if $engine {
-      class { 'echoes_alert::engine':
-        branch            => $branch,
-        version           => $version,
-        install_dir       => "${install_dir}/engine",
-        log_dir           => $log_dir,
-        database_host     => $database_host,
-        database_name     => $database_name,
-        database_user     => $database_user,
-        database_password => $database_password,
-        api_host          => $engine_api_host,
-        api_port          => $engine_api_port,
-        api_https         => $engine_api_https,
-      }
-    }
-    if $rsyslog {
-      class { 'echoes_alert::rsyslog':
-        branch            => $branch,
-        version           => $version,
-        install_dir       => "${install_dir}/rsyslog",
-        log_dir           => $log_dir,
-        port              => $rsyslog_port,
-        database_host     => $database_host,
-        database_name     => $database_name,
-        database_user     => $database_user,
-        database_password => $database_password,
-      }
-    }
-  }
+  anchor { "${module_name}::begin": } ->
+  class { "${module_name}::install": } ->
+  class { "${module_name}::config": } ~>
+  class { "${module_name}::service": } ->
+  anchor { "${module_name}::end": }
 }

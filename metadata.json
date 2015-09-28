@@ -1,34 +1,36 @@
 {
-  "name": "echoestech-echoes_alert",
+  "name": "echoes-echoes_alert",
   "version": "0.1.0",
-  "source": "UNKNOWN",
-  "author": "ECHOES Technologies",
-  "license": "Apache License, Version 2.0",
-  "summary": "ECHOES Alert Module",
-  "description": "Manage ECHOES Alert",
-  "project_page": "UNKNOWN",
-  "dependencies": [
+  "author": "Echoes Technologies",
+  "summary": "Puppet module to manage Echoes Alert installation and configuration",
+  "license": "Apache-2.0",
+  "source": "https://forge.echoes-tech.com/projects/puppet-echoes_alert/repository",
+  "project_page": "https://forge.echoes-tech.com/projects/puppet-echoes_alert",
+  "issues_url": "https://forge.echoes-tech.com/projects/puppet-echoes_alert/issues",
+  "tags": [
+    "echoes",
+    "alert"
+  ],
+  "operatingsystem_support": [
     {
-      "name": "puppetlabs/stdlib",
-      "version_requirement": ">= 0.1.6"
+      "operatingsystem": "Debian",
+      "operatingsystemrelease": [
+        "7"
+      ]
     }
   ],
-  "types": [
-
+  "requirements": [
+    {
+      "name": "pe",
+      "version_requirement": "3.x"
+    },
+    {
+      "name": "puppet",
+      "version_requirement": "3.x"
+    }
   ],
-  "checksums": {
-    "Modulefile": "3f62d11cc0f149d9b90d38d17e42181d",
-    "README": "9d1ac4a5d65d86d1c5c702c588ea2fa4",
-    "manifests/api.pp": "1b16bdf33defcb9b5b7585c2459dc7f1",
-    "manifests/dbo.pp": "c3b6de562fe282850bf4bc2881b1deac",
-    "manifests/engine.pp": "a832eef85a89044059f3a43a17c9b10e",
-    "manifests/gui.pp": "509299d66d071c7482bbcb92eb4264b3",
-    "manifests/init.pp": "76f9c1d0d54f1f621f7460a80aa652be",
-    "manifests/params.pp": "e03a7a30e69905b8e0c5e82c4599b8e0",
-    "manifests/postgresql.pp": "57466df95dddbd2c493f2400a8682566",
-    "manifests/rsyslog.pp": "b2c9995b3ac914d8319055f3da44670c",
-    "manifests/wt.pp": "4685b1beacf7f48a8867c38505a60b66",
-    "spec/spec_helper.rb": "a55d1e6483344f8ec6963fcb2c220372",
-    "tests/init.pp": "d19604700ec7eb7d7a7f696e304fde7c"
-  }
+  "dependencies": [
+    {"name":"puppetlabs/stdlib","version_requirement":">= 1.0.0"},
+    {"name":"echoes/wt","version_requirement":">= 0.1.0"}
+  ]
 }
